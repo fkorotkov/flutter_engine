@@ -8,11 +8,6 @@
 #include "flutter/testing/testing.h"
 #include "flutter/testing/thread_test.h"
 
-#define CURRENT_TEST_NAME                                           \
-  std::string {                                                     \
-    ::testing::UnitTest::GetInstance()->current_test_info()->name() \
-  }
-
 namespace blink {
 
 using DartIsolateTest = ::testing::ThreadTest;
@@ -23,11 +18,11 @@ TEST_F(DartIsolateTest, RootIsolateCreationAndShutdown) {
   settings.task_observer_remove = [](intptr_t) {};
   auto vm = DartVM::ForProcess(settings);
   ASSERT_TRUE(vm);
-  TaskRunners task_runners(CURRENT_TEST_NAME,       //
-                           GetCurrentTaskRunner(),  //
-                           GetCurrentTaskRunner(),  //
-                           GetCurrentTaskRunner(),  //
-                           GetCurrentTaskRunner()   //
+  TaskRunners task_runners(testing::GetCurrentTestName(),  //
+                           GetCurrentTaskRunner(),         //
+                           GetCurrentTaskRunner(),         //
+                           GetCurrentTaskRunner(),         //
+                           GetCurrentTaskRunner()          //
   );
   auto weak_isolate = DartIsolate::CreateRootIsolate(
       vm.get(),                  // vm
@@ -53,11 +48,11 @@ TEST_F(DartIsolateTest, IsolateShutdownCallbackIsInIsolateScope) {
   settings.task_observer_remove = [](intptr_t) {};
   auto vm = DartVM::ForProcess(settings);
   ASSERT_TRUE(vm);
-  TaskRunners task_runners(CURRENT_TEST_NAME,       //
-                           GetCurrentTaskRunner(),  //
-                           GetCurrentTaskRunner(),  //
-                           GetCurrentTaskRunner(),  //
-                           GetCurrentTaskRunner()   //
+  TaskRunners task_runners(testing::GetCurrentTestName(),  //
+                           GetCurrentTaskRunner(),         //
+                           GetCurrentTaskRunner(),         //
+                           GetCurrentTaskRunner(),         //
+                           GetCurrentTaskRunner()          //
   );
   auto weak_isolate = DartIsolate::CreateRootIsolate(
       vm.get(),                  // vm
