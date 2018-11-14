@@ -12,33 +12,33 @@
 #include "flutter/fml/message_loop.h"
 #include "flutter/fml/message_loop_impl.h"
 #include "flutter/fml/synchronization/waitable_event.h"
+#include "flutter/fml/thread.h"
 
 namespace fml {
 
-TaskRunner::TaskRunner(fml::RefPtr<MessageLoop> loop)
-    : loop_(std::move(loop)) {}
+TaskRunner::TaskRunner(fml::RefPtr<MessageLoopImpl> loop)
+    : loop_impl_(std::move(loop)) {}
 
 TaskRunner::~TaskRunner() = default;
 
 void TaskRunner::PostTask(fml::closure task) {
-  loop_->GetLoopImpl()->PostTask(std::move(task), fml::TimePoint::Now());
+  loop_impl_->PostTask(std::move(task), fml::TimePoint::Now());
 }
 
 void TaskRunner::PostTaskForTime(fml::closure task,
                                  fml::TimePoint target_time) {
-  loop_->GetLoopImpl()->PostTask(std::move(task), target_time);
+  loop_impl_->PostTask(std::move(task), target_time);
 }
 
 void TaskRunner::PostDelayedTask(fml::closure task, fml::TimeDelta delay) {
-  loop_->GetLoopImpl()->PostTask(std::move(task),
-                                 fml::TimePoint::Now() + delay);
+  loop_impl_->PostTask(std::move(task), fml::TimePoint::Now() + delay);
 }
 
 bool TaskRunner::RunsTasksOnCurrentThread() {
   if (!fml::MessageLoop::IsInitializedForCurrentThread()) {
     return false;
   }
-  return &MessageLoop::GetCurrent() == loop_.get();
+  return MessageLoop::GetCurrent().GetLoopImpl() == loop_impl_;
 }
 
 void TaskRunner::RunNowOrPostTask(fml::closure task) {
@@ -49,11 +49,10 @@ void TaskRunner::RunNowOrPostTask(fml::closure task) {
     return;
   }
 
-  AutoResetWaitableEvent latch;
-
   // Legacy path for platforms on which we do not have access to the message
   // loop implementation (Fuchsia and Desktop Linux).
-  if (!loop_) {
+  if (!loop_impl_) {
+    AutoResetWaitableEvent latch;
     PostTask([task, &latch]() {
       task();
       latch.Signal();
@@ -62,16 +61,20 @@ void TaskRunner::RunNowOrPostTask(fml::closure task) {
     return;
   }
 
-  auto task_in_loop_activation = [loop = loop_, task, &latch]() {
-    loop->Run([loop, task, &latch]() {
-      task();
-      loop->Terminate();
-      latch.Signal();
-    });
-  };
+  FML_CHECK(false);
 
-  PostTask(task_in_loop_activation);
-  latch.Wait();
+  // MessageLoop::GetCurrent().RunNested(
+  //     [runner = Ref(this), task](auto outer_activation) {
+  //       runner->PostTask([runner, task, outer_activation]() {
+  //         MessageLoop::GetCurrent().RunNested(
+  //             [task, outer_activation](auto inner_activation) {
+  //               inner_activation->Terminate();
+  //               FML_LOG(INFO) << "Performing task.";
+  //               task();
+  //               outer_activation->Terminate();
+  //             });
+  //       });
+  //     });
 }
 
 }  // namespace fml

@@ -91,4 +91,23 @@ void Thread::SetCurrentThreadName(const std::string& name) {
 #endif
 }
 
+std::string Thread::GetCurrentThreadName() {
+#if OS_MACOSX || OS_LINUX || OS_ANDROID
+  char name[128];
+  int result =
+      pthread_getname_np(pthread_self(), name, sizeof(name) / sizeof(char));
+
+  if (result != 0) {
+    FML_LOG(ERROR) << "Could not fetch the thread ID.";
+    return "";
+  }
+  // Note: The result is NOT the size of the thread name. Instead, the buffer is
+  // null terminated.
+  return name;
+#else
+  FML_DLOG(ERROR) << "Could not fetch the thread name on this platform.";
+  return "";
+#endif
+}
+
 }  // namespace fml

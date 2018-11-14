@@ -10,20 +10,21 @@
 #include "flutter/fml/memory/ref_ptr.h"
 #include "flutter/fml/message_loop_impl.h"
 #include "flutter/fml/task_runner.h"
+#include "flutter/fml/thread.h"
 #include "flutter/fml/thread_local.h"
 
 namespace fml {
 
 FML_THREAD_LOCAL ThreadLocal tls_message_loop([](intptr_t value) {
-  delete reinterpret_cast<RefPtr<MessageLoop>*>(value);
+  delete reinterpret_cast<MessageLoop*>(value);
 });
 
 MessageLoop& MessageLoop::GetCurrent() {
-  auto loop = reinterpret_cast<RefPtr<MessageLoop>*>(tls_message_loop.Get());
+  auto* loop = reinterpret_cast<MessageLoop*>(tls_message_loop.Get());
   FML_CHECK(loop != nullptr)
       << "MessageLoop::EnsureInitializedForCurrentThread was not called on "
          "this thread prior to message loop use.";
-  return *loop->get();
+  return *loop;
 }
 
 void MessageLoop::EnsureInitializedForCurrentThread() {
@@ -31,8 +32,7 @@ void MessageLoop::EnsureInitializedForCurrentThread() {
     // Already initialized.
     return;
   }
-  auto message_loop_ptr = new RefPtr<MessageLoop>(nullptr);
-  *message_loop_ptr = MakeRefCounted<MessageLoop>();
+  auto* message_loop_ptr = new MessageLoop();
   tls_message_loop.Set(reinterpret_cast<intptr_t>(message_loop_ptr));
 }
 
@@ -40,71 +40,62 @@ bool MessageLoop::IsInitializedForCurrentThread() {
   return tls_message_loop.Get() != 0;
 }
 
-MessageLoop::MessageLoop() {
-  PushMessageLoop();
+MessageLoop::MessageLoop()
+    : loop_impl_(MessageLoopImpl::Create()),
+      task_runner_(MakeRefCounted<TaskRunner>(loop_impl_)) {
+  FML_CHECK(loop_impl_);
 }
 
 MessageLoop::~MessageLoop() = default;
 
-void MessageLoop::Run(fml::closure on_done) {
-  FML_DCHECK(impls_.size() != 0);
-  if (impls_.top()->DidRun()) {
-    PushMessageLoop();
-  }
-  auto impl_to_run = impls_.top();
-  if (on_done) {
-    impl_to_run->PostTask(on_done, TimePoint::Now());
-  }
-  impl_to_run->DoRun();
+void MessageLoop::Run() {
+  loop_impl_->DoRun();
 }
 
-size_t MessageLoop::GetActivationCount() const {
-  return impls_.size();
+void MessageLoop::RunNested(
+    std::function<void(RefPtr<TaskRunner>, RefPtr<MessageLoopImpl>)>
+        on_nested_task_runner) {
+  FML_DCHECK(on_nested_task_runner);
+
+  auto nested_loop_impl = MessageLoopImpl::Create();
+  FML_CHECK(nested_loop_impl);
+
+  auto nested_task_runner = MakeRefCounted<TaskRunner>(nested_loop_impl);
+  nested_task_runner->PostTask(
+      [nested_task_runner, on_nested_task_runner, nested_loop_impl]() {
+        on_nested_task_runner(nested_task_runner, nested_loop_impl);
+      });
+
+  // Run the nested loop. It is now the job of the the caller to terminate the
+  // activation using the task runner we just gave it.
+  nested_loop_impl->DoRun();
+
+  // The nested loop is done. Re-arm timers.
+  loop_impl_->RunExpiredTasksNow();
 }
 
 void MessageLoop::Terminate() {
-  FML_DCHECK(impls_.size() != 0);
-
-  // Pop the message loop on top of the activation stack.
-  auto loop_to_terminate = impls_.top();
-  impls_.pop();
-  loop_to_terminate->DoTerminate();
-
-  // If there is another activation, flush its tasks and rearm timers.
-  // If there are no more loops, push an inactive loop so that tasks may be
-  // posted onto it.
-  if (impls_.size() != 0) {
-    impls_.top()->RunExpiredTasksNow();
-  } else {
-    PushMessageLoop();
-  }
+  loop_impl_->DoTerminate();
 }
 
-fml::RefPtr<fml::TaskRunner> MessageLoop::GetTaskRunner() {
-  return fml::MakeRefCounted<fml::TaskRunner>(Ref(this));
+RefPtr<TaskRunner> MessageLoop::GetTaskRunner() {
+  return task_runner_;
 }
 
-fml::RefPtr<MessageLoopImpl> MessageLoop::GetLoopImpl() const {
-  FML_CHECK(impls_.size() > 0);
-  return impls_.top();
+RefPtr<MessageLoopImpl> MessageLoop::GetLoopImpl() const {
+  return loop_impl_;
 }
 
-void MessageLoop::AddTaskObserver(intptr_t key, fml::closure callback) {
-  GetLoopImpl()->AddTaskObserver(key, callback);
+void MessageLoop::AddTaskObserver(intptr_t key, closure callback) {
+  loop_impl_->AddTaskObserver(key, callback);
 }
 
 void MessageLoop::RemoveTaskObserver(intptr_t key) {
-  GetLoopImpl()->RemoveTaskObserver(key);
+  loop_impl_->RemoveTaskObserver(key);
 }
 
 void MessageLoop::RunExpiredTasksNow() {
-  GetLoopImpl()->RunExpiredTasksNow();
-}
-
-void MessageLoop::PushMessageLoop() {
-  auto loop_impl = MessageLoopImpl::Create();
-  FML_CHECK(loop_impl);
-  impls_.push(std::move(loop_impl));
+  loop_impl_->RunExpiredTasksNow();
 }
 
 }  // namespace fml

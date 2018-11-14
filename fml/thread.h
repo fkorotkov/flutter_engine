@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <memory>
+#include <string>
 #include <thread>
 
 #include "flutter/fml/macros.h"
@@ -24,12 +25,14 @@ class Thread {
 
   void Join();
 
+  static void SetCurrentThreadName(const std::string& name);
+
+  static std::string GetCurrentThreadName();
+
  private:
   std::unique_ptr<std::thread> thread_;
   fml::RefPtr<fml::TaskRunner> task_runner_;
   std::atomic_bool joined_;
-
-  static void SetCurrentThreadName(const std::string& name);
 
   FML_DISALLOW_COPY_AND_ASSIGN(Thread);
 };

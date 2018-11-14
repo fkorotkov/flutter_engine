@@ -13,7 +13,7 @@
 
 namespace fml {
 
-class MessageLoop;
+class MessageLoopImpl;
 
 class TaskRunner : public fml::RefCountedThreadSafe<TaskRunner> {
  public:
@@ -30,10 +30,10 @@ class TaskRunner : public fml::RefCountedThreadSafe<TaskRunner> {
   void RunNowOrPostTask(fml::closure task);
 
  protected:
-  TaskRunner(fml::RefPtr<MessageLoop> loop);
+  TaskRunner(fml::RefPtr<MessageLoopImpl> loop);
 
  private:
-  fml::RefPtr<MessageLoop> loop_;
+  fml::RefPtr<MessageLoopImpl> loop_impl_;
 
   FML_FRIEND_MAKE_REF_COUNTED(TaskRunner);
   FML_FRIEND_REF_COUNTED_THREAD_SAFE(TaskRunner);
