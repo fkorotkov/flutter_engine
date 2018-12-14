@@ -86,4 +86,28 @@ sk_sp<GrContext> EmbedderSurfaceGL::CreateResourceContext() const {
   return nullptr;
 }
 
+// |shell::GPUSurfaceGLDelegate|
+bool EmbedderSurfaceGL::SurfaceAccessWillBegin(SkISize size) const {
+  if (auto callback = gl_dispatch_table_.surface_access_will_begin) {
+    return callback(size.width(), size.height());
+  }
+
+  return true;
+}
+
+// |shell::GPUSurfaceGLDelegate|
+void EmbedderSurfaceGL::SurfaceAccessDidEnd() const {
+  if (auto callback = gl_dispatch_table_.surface_access_did_end) {
+    callback();
+  }
+}
+
+SkISize EmbedderSurfaceGL::OnscreenSurfaceSize(
+    const SkISize& framework_surface_size) const {
+  if (auto callback = gl_dispatch_table_.surface_size_callback) {
+    return callback();
+  }
+  return framework_surface_size;
+}
+
 }  // namespace shell

@@ -21,8 +21,11 @@ class EmbedderSurfaceGL final : public EmbedderSurface,
     std::function<intptr_t(void)> gl_fbo_callback;                // required
     std::function<bool(void)> gl_make_resource_current_callback;  // optional
     std::function<SkMatrix(void)>
-        gl_surface_transformation_callback;              // optional
-    std::function<void*(const char*)> gl_proc_resolver;  // optional
+        gl_surface_transformation_callback;                         // optional
+    std::function<void*(const char*)> gl_proc_resolver;             // optional
+    std::function<bool(size_t, size_t)> surface_access_will_begin;  // optional
+    std::function<void(void)> surface_access_did_end;               // optional
+    std::function<SkISize(void)> surface_size_callback;             // optional
   };
 
   EmbedderSurfaceGL(GLDispatchTable gl_dispatch_table,
@@ -64,6 +67,16 @@ class EmbedderSurfaceGL final : public EmbedderSurface,
 
   // |shell::GPUSurfaceGLDelegate|
   GLProcResolver GetGLProcResolver() const override;
+
+  // |shell::GPUSurfaceGLDelegate|
+  bool SurfaceAccessWillBegin(SkISize surface_size) const override;
+
+  // |shell::GPUSurfaceGLDelegate|
+  void SurfaceAccessDidEnd() const override;
+
+  // |shell::GPUSurfaceGLDelegate|
+  SkISize OnscreenSurfaceSize(
+      const SkISize& framework_surface_size) const override;
 
   FML_DISALLOW_COPY_AND_ASSIGN(EmbedderSurfaceGL);
 };

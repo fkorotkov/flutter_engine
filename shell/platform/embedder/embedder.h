@@ -53,7 +53,17 @@ typedef struct {
   double pers2;
 } FlutterTransformation;
 
+typedef struct {
+  size_t width;
+  size_t height;
+} FlutterSize;
+
 typedef bool (*BoolCallback)(void* /* user data */);
+typedef void (*VoidCallback)(void* /* user data */);
+typedef FlutterSize (*SizeCallback)(void* /* user data */);
+typedef bool (*SurfaceAccessCallback)(void* /* user data */,
+                                      size_t width,
+                                      size_t height);
 typedef FlutterTransformation (*TransformationCallback)(void* /* user data */);
 typedef uint32_t (*UIntCallback)(void* /* user data */);
 typedef bool (*SoftwareSurfacePresentCallback)(void* /* user data */,
@@ -79,6 +89,12 @@ typedef struct {
   // operations. This callback is optional.
   TransformationCallback surface_transformation;
   ProcResolver gl_proc_resolver;
+  // An optional callback used by the engine to determine the actual surface
+  // size. If this is not specified, the engine assumes that the surface size is
+  // equal to the size provided by the viewport metrics.
+  SizeCallback surface_size_callback;
+  SurfaceAccessCallback surface_access_will_begin;
+  VoidCallback surface_access_did_end;
 } FlutterOpenGLRendererConfig;
 
 typedef struct {

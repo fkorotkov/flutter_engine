@@ -265,7 +265,8 @@ SkMatrix GPUSurfaceGL::GetRootTransformation() const {
 }
 
 // |shell::Surface|
-std::unique_ptr<SurfaceFrame> GPUSurfaceGL::AcquireFrame(const SkISize& size) {
+std::unique_ptr<SurfaceFrame> GPUSurfaceGL::AcquireFrame(
+    const SkISize& framework_surface_size) {
   if (delegate_ == nullptr) {
     return nullptr;
   }
@@ -278,8 +279,9 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGL::AcquireFrame(const SkISize& size) {
 
   const auto root_surface_transformation = GetRootTransformation();
 
-  sk_sp<SkSurface> surface =
-      AcquireRenderSurface(size, root_surface_transformation);
+  sk_sp<SkSurface> surface = AcquireRenderSurface(
+      delegate_->OnscreenSurfaceSize(framework_surface_size),
+      root_surface_transformation);
 
   if (surface == nullptr) {
     return nullptr;
@@ -296,9 +298,32 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGL::AcquireFrame(const SkISize& size) {
   return std::make_unique<SurfaceFrame>(surface, submit_callback);
 }
 
+struct AutoSurfaceAccess {
+ public:
+  AutoSurfaceAccess(GPUSurfaceGLDelegate& delegate, SkISize size)
+      : delegate_(delegate),
+        should_render_to_surface_(delegate_.SurfaceAccessWillBegin(size)) {}
+
+  bool ShouldRenderToSurface() { return should_render_to_surface_; }
+
+  ~AutoSurfaceAccess() { delegate_.SurfaceAccessDidEnd(); }
+
+ private:
+  GPUSurfaceGLDelegate& delegate_;
+  bool should_render_to_surface_;
+};
+
 bool GPUSurfaceGL::PresentSurface(SkCanvas* canvas) {
   if (delegate_ == nullptr || canvas == nullptr || context_ == nullptr) {
     return false;
+  }
+
+  AutoSurfaceAccess surface_access(
+      *delegate_,
+      SkISize::Make(onscreen_surface_->width(), onscreen_surface_->height()));
+
+  if (!surface_access.ShouldRenderToSurface()) {
+    return true;
   }
 
   if (offscreen_surface_ != nullptr) {
@@ -380,6 +405,11 @@ bool GPUSurfaceGLDelegate::UseOffscreenSurface() const {
   return false;
 }
 
+SkISize GPUSurfaceGLDelegate::OnscreenSurfaceSize(
+    const SkISize& framework_surface_size) const {
+  return framework_surface_size;
+}
+
 SkMatrix GPUSurfaceGLDelegate::GLContextSurfaceTransformation() const {
   SkMatrix matrix;
   matrix.setIdentity();
@@ -393,6 +423,15 @@ flow::ExternalViewEmbedder* GPUSurfaceGLDelegate::GetExternalViewEmbedder() {
 GPUSurfaceGLDelegate::GLProcResolver GPUSurfaceGLDelegate::GetGLProcResolver()
     const {
   return nullptr;
+}
+
+bool GPUSurfaceGLDelegate::SurfaceAccessWillBegin(SkISize surface_size) const {
+  // Nothing to do by default.
+  return true;
+}
+
+void GPUSurfaceGLDelegate::SurfaceAccessDidEnd() const {
+  // Nothing to do by default.
 }
 
 }  // namespace shell

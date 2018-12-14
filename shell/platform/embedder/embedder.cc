@@ -164,6 +164,33 @@ InferOpenGLPlatformViewCreationCallback(
 #endif
   }
 
+  std::function<SkISize(void)> surface_size_callback;
+  if (SAFE_ACCESS(open_gl_config, surface_size_callback, nullptr) != nullptr) {
+    surface_size_callback = [ptr = config->open_gl.surface_size_callback,
+                             user_data]() -> SkISize {
+      auto size = ptr(user_data);
+      return SkISize::Make(size.width, size.height);
+    };
+  }
+
+  std::function<bool(size_t, size_t)> surface_access_will_begin;
+  if (SAFE_ACCESS(open_gl_config, surface_access_will_begin, nullptr) !=
+      nullptr) {
+    surface_access_will_begin =
+        [ptr = config->open_gl.surface_access_will_begin, user_data](
+            size_t width, size_t height) -> bool {
+      return ptr(user_data, width, height);
+    };
+  }
+
+  std::function<void(void)> surface_access_did_end;
+  if (SAFE_ACCESS(open_gl_config, surface_access_did_end, nullptr) != nullptr) {
+    surface_access_did_end = [ptr = config->open_gl.surface_access_did_end,
+                              user_data](void) -> void {
+      return ptr(user_data);
+    };
+  }
+
   bool fbo_reset_after_present =
       SAFE_ACCESS(open_gl_config, fbo_reset_after_present, false);
 
@@ -175,6 +202,9 @@ InferOpenGLPlatformViewCreationCallback(
       gl_make_resource_current_callback,   // gl_make_resource_current_callback
       gl_surface_transformation_callback,  // gl_surface_transformation_callback
       gl_proc_resolver,                    // gl_proc_resolver
+      surface_access_will_begin,           // surface_access_will_begin
+      surface_access_did_end,              // surface_access_did_end
+      surface_size_callback,               // surface_size_callback
   };
 
   return [gl_dispatch_table, fbo_reset_after_present,

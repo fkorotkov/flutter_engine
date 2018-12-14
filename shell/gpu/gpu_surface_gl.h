@@ -30,6 +30,14 @@ class GPUSurfaceGLDelegate {
 
   virtual bool UseOffscreenSurface() const;
 
+  // Used by the rasterizer to determine the physical size of the onscreen
+  // surface. The physical size that the framework expects to render the scene
+  // is provided as a hint. The surface size returned may be different from the
+  // size the framework expects to render at if it has been resized by the time
+  // the framework has done its work to generate a frame for the old size.
+  virtual SkISize OnscreenSurfaceSize(
+      const SkISize& framework_surface_size) const;
+
   virtual SkMatrix GLContextSurfaceTransformation() const;
 
   virtual flow::ExternalViewEmbedder* GetExternalViewEmbedder();
@@ -37,6 +45,10 @@ class GPUSurfaceGLDelegate {
   using GLProcResolver =
       std::function<void* /* proc name */ (const char* /* proc address */)>;
   virtual GLProcResolver GetGLProcResolver() const;
+
+  virtual bool SurfaceAccessWillBegin(SkISize surface_size) const;
+
+  virtual void SurfaceAccessDidEnd() const;
 };
 
 class GPUSurfaceGL : public Surface {
