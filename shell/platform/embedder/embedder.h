@@ -174,6 +174,20 @@ typedef struct {
   const FlutterPlatformMessageResponseHandle* response_handle;
 } FlutterPlatformMessage;
 
+typedef struct _FlutterTaskRunnerTask* FlutterTaskRunnerTask;
+
+typedef void (*FlutterTaskRunnerPerformCallback)(
+    FlutterTaskRunnerTask /* task */,
+    uint64_t /* target_time_nanos */,
+    void* /* user data */);
+
+typedef struct {
+  // The size of this struct. Must be sizeof(FlutterTaskRunner).
+  size_t struct_size;
+  FlutterTaskRunnerPerformCallback perform_task_callback;
+  BoolCallback runs_task_on_current_thread_callback;
+} FlutterTaskRunner;
+
 typedef void (*FlutterPlatformMessageCallback)(
     const FlutterPlatformMessage* /* message*/,
     void* /* user data */);
@@ -267,6 +281,9 @@ FLUTTER_EXPORT
 FlutterResult FlutterEngineMarkExternalTextureFrameAvailable(
     FlutterEngine engine,
     int64_t texture_identifier);
+
+FLUTTER_EXPORT
+FlutterResult FlutterTaskRunnerPerformTask(FlutterTaskRunnerTask task);
 
 #if defined(__cplusplus)
 }  // extern "C"

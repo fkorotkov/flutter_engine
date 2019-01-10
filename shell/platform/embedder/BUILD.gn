@@ -2,9 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("$flutter_root/testing/testing.gni")
 import("$flutter_root/shell/gpu/gpu.gni")
 import("$flutter_root/shell/platform/embedder/embedder.gni")
+import("$flutter_root/testing/testing.gni")
 
 shell_gpu_configuration("embedder_gpu_configuration") {
   enable_software = true
@@ -27,6 +27,8 @@ source_set("embedder") {
     "embedder_surface_gl.h",
     "embedder_surface_software.cc",
     "embedder_surface_software.h",
+    "embedder_task_runner.cc",
+    "embedder_task_runner.h",
     "platform_view_embedder.cc",
     "platform_view_embedder.h",
   ]
